@@ -1,7 +1,7 @@
+from Python.gui.gui import ConverterWindow
+
 class InvalidSegmentCount(Exception):
     pass
-
-
 class Segment:
 
     # cur = current ind of seg, max = seg count
@@ -13,6 +13,7 @@ class Segment:
         self.prev = prev
 
 
+
 class ProgressBar:
 
     data = []
@@ -21,16 +22,16 @@ class ProgressBar:
     subtext = ""
     progress = 0
 
-    def __init__(self, progress_bar, progress_bar_text=None):
-        self.pbar = progress_bar
-        self.text = progress_bar_text
-
+    def __init__(self):
+        pass
+        
     def segment(self, count):
         if count <= 0:
             raise InvalidSegmentCount("You must have at least one segment!")
         if len(self.data) == 0:
-            self.cur_segment = Segment(0, count, 1, 0)
-            self.pbar.update(max=count, current_count=0)
+            self.cur_segment = Segment(0, 1000, 1000 / count, 0)
+            ConverterWindow.get_instance().connection.set_progress_max.emit(1000)
+            ConverterWindow.get_instance().connection.set_progress.emit(0)
         else:
             s = self.cur_segment
             self.cur_segment = Segment(0, count, s.step / count, self.progress)
@@ -56,13 +57,13 @@ class ProgressBar:
             s.cur += 1
             self.progress = (s.cur * s.step) + s.prev
 
-        self.pbar.update(current_count=self.progress)
+        ConverterWindow.get_instance().connection.set_progress.emit(int(self.progress))
         self.updateText()
 
     def reset(self):
         self.progress = 0
         self.data.clear()
-        self.pbar.update(current_count=self.progress)
+        ConverterWindow.get_instance().connection.set_progress.emit(0)
 
     def setSubtext(self, txt):
         self.subtext = txt
@@ -75,7 +76,7 @@ class ProgressBar:
             if len(self.data) <= 1
             else f" ({self.cur_segment.cur+1}/{self.cur_segment.max})"
         )
-        self.text.update(f"{self.title}{self.subtext}{suffix}")
+        ConverterWindow.get_instance().connection.update_text.emit(f"{self.title}{self.subtext}{suffix}")
 
     def setText(self, title="", text=""):
         self.title = title

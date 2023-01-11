@@ -11,11 +11,7 @@ CONVERTER_FOLDER_NAME = "LegacyModConverter" + VERSION_STRING
 WARNINGS_MOD_NAME_SEPARATOR = "-" * 50
 ARBITRARILY_HIGH_DEFAULT_GRIP_STRENGTH = 424242
 
-INPUT_DIR = "Input"
-OUTPUT_DIR = "Output"
-
-INPUT_DIR_USES_CC_FOLDER = False
-OUTPUT_DIR_IS_RELATIVE_TO_INPUT = False
+SETTINGS_FILE_PATH = "settings.json"
 
 RUN_TESTS = True  # This enables tests when set to True, as the release version shouldn't run tests.
 

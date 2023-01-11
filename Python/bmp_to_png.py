@@ -214,13 +214,13 @@ def bmp_to_png(input_filepath, output_filepath):
             Image.open(input_filepath).save(output_filepath)
 
 
-def change_bmp_to_png_name(line, skip_conversion):
+def change_bmp_to_png_name(line, skip_convert):
     if (
         not any(
             skipped_filename in line
             for skipped_filename in ("palette.bmp", "palettemat.bmp")
         )
-        and not skip_conversion
+        and not skip_convert
     ):
         return line.replace(".bmp", ".png")
     else:

@@ -73,7 +73,7 @@ def is_deeper(depth, token, tokens, next_token_idx):
     new_depth = get_depth(token, tokens, next_token_idx)
 
     if new_depth > depth + 1:
-        raise TooManyTabs()
+        raise TooManyTabs(f"Too many tabs in {token['filepath']}. Expected {depth+1}, got {new_depth}!")
 
     return new_depth > depth
 

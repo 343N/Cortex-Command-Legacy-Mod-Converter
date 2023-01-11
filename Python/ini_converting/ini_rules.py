@@ -1,7 +1,6 @@
 from Python.ini_converting import ini_rules_utils
 
 from Python import thumbnail_generator
-from Python import update_progress
 from Python.ini_converting import ini_cst, ini_tokenizer
 from Python import shared_globals as cfg
 
@@ -73,6 +72,9 @@ def apply_rules_on_sections(parsed_subset, output_folder_path):
         pie_menu_fix(section)
 
         remove_slterrain_properties(section)
+
+        # this should always come last
+        fix_indents(section)
 
         if output_folder_path != None:
             iconfile_path_to_thumbnail_generator(section, output_folder_path)
@@ -494,6 +496,45 @@ def add_grip_strength_if_missing(section):
                     )
 
 
+def fix_indents(section: list, base=0):
+    """
+    Fix indents of INI files (tabs and spaces together will be reduced to tabs)
+    This also converts all spaces to tabs, as the game produces warnings if they're spaces. 
+    This *also* sets indents based on it's location on the tree (child will always be indented + 1)
+
+    Also removes all indents from sections (sections are always no indent)
+
+    """
+    # remove any indent from section
+    remove_up_to = 0
+    for i, token in enumerate(section):
+        if (token["type"] == "extra"):
+            remove_up_to += 1
+            continue
+        break
+    
+    del section[:i]
+    
+    # insert indent if necessary
+    if (base != 0): 
+        section.insert(0, {'type': 'extra',  'content': "\t" * base})
+
+    # remove empty spaces at the end of lines
+    # for i in range(len(section) - 1, -1, -1):
+    #     if (token[i])
+
+    # remove indents from children
+    children = ini_rules_utils.get_children(section)
+    if (not children): return
+    for element in children:
+        fix_indents(element, base+1)
+    
+
+
+
+
+
+
 def remove_slterrain_properties(section):
     """
     Remove 'Offset' and 'ScrollRatio' property from SLTerrain objects.
@@ -514,6 +555,8 @@ def remove_slterrain_properties(section):
            ScrollRatio = Vector
                    X = 1
                    Y = -1
+
+
 
            ->
 

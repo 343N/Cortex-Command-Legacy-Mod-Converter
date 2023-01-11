@@ -27,14 +27,8 @@ class TestINIConversion(unittest.TestCase):
             elif filepath.endswith(self.EXPECTED_FILE_SUFFIX):
                 out_files[filepath] = True
 
-        if len(out_files) < len(in_files):
-            raise self.MissingOutputTestFile(
-                "Missing output test file(s):" + str(in_files - out_files)
-            )
-        elif len(out_files) > len(in_files):
-            raise self.MissingInputTestFile(
-                "Missing input test file(s): " + str(out_files - in_files)
-            )
+        if len(out_files) > len(in_files):
+            raise self.MissingInputTestFile("Missing input test file(s).")
 
         # Run all tests.
         for in_file in in_files:

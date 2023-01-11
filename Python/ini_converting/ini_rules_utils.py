@@ -127,6 +127,19 @@ def indent(section: list, count=1, recursive=True):
         for x in children:
             indent(x, count)
 
+def get_indent_chars(line):
+    spaces, tabs = [0,0]
+
+    for cur in line:
+        if (cur["content"] not in (" ", "\t")):
+            break
+        if (cur["content"] == " "):
+            spaces += 1
+        elif (cur["content"] == "\t"):
+            tabs += 1
+    
+    return spaces, tabs
+
 
 def get_indent(line):
     if len(line) == 0:
@@ -141,7 +154,6 @@ def get_children(section):
     if has_children(section):
         return section[-1]["content"]
     return None
-
 
 def has_children(section):
     return "type" in section[-1] and section[-1]["type"] == "children"

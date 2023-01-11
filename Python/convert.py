@@ -3,13 +3,15 @@ from pathlib import Path
 from playsound import playsound
 from subprocess import Popen
 import math
-import PySimpleGUI as sg
+import traceback
+from Python.settings import Settings
+from PySide6.QtWidgets import QErrorMessage
 
 from Python import shared_globals as cfg
+import Python.gui.gui as gui
 from Python import (
     regex_rules,
     zips,
-    update_progress,
     bmp_to_png,
     warnings,
     utils,
@@ -36,40 +38,58 @@ def convert_all():
 
     print("")  # Newline.
 
-    input_folder_path = cfg.INPUT_DIR
-    output_folder_path = cfg.OUTPUT_DIR
+    input_folder_path = Settings.get("input_folder")
+    output_folder_path = Settings.get("output_folder")
 
     input_mod_paths = get_input_mod_paths(input_folder_path)
     mod_count = len(input_mod_paths)
+
+    window = gui.ConverterWindow.get_instance()
+    cfg.progress_bar.reset()
     cfg.progress_bar.segment(mod_count)
+
+    warnings.load_conversion_and_warning_rules()
+
     for i, input_mod_path in enumerate(get_input_mod_paths(input_folder_path)):
         cfg.progress_bar.setTitle(
             f"Converting {input_mod_path.stem}{input_mod_path.suffix} ({i+1}/{mod_count})...\t"
         )
-        convert(
-            input_mod_path,
-            input_folder_path,
-            output_folder_path,
-            sg.user_settings_get_entry("beautify_lua"),
-            sg.user_settings_get_entry("output_zips"),
-            sg.user_settings_get_entry("skip_conversion"),
-        )
+        try:
+            convert(
+                input_mod_path,
+                input_folder_path,
+                output_folder_path,
+                Settings.get("beautify_lua"),
+                Settings.get("output_zips"),
+                Settings.get("skip_convert"),
+            )
+        except Exception as e:
+            window = gui.ConverterWindow.get_instance()
+            window.connection.error_msg.emit(
+                f"AN EXCEPTION OCCURRED DURING CONVERSION:<br>{str(e)}<br><br>You should make a screenshot of this and either make a GitHub issue for this by clicking the GitHub icon in this program, or you can send it to MyNameIsTrez#1585 on Discord.<br>"
+                + "_" * 60
+                + "<br>"
+                + traceback.format_exc(),
+            )
+            window.connection.set_progress.emit(0)
+            window.connection.set_progress_max.emit(0)
+            window.connection.update_text.emit("Error!")
+            window.worker.finished.emit()
+            cfg.progress_bar.reset()
+            return
 
-    if sg.user_settings_get_entry("play_finish_sound"):
+    window.worker.finished.emit()
+    if Settings.get("play_finish_sound"):
         playsound(utils.path("Media/finish.wav"), block=(platform.system() == "Linux"))
 
     elapsed = math.floor(time.time() - time_start)
     time_str = f"Finished in {elapsed} {pluralize('second', elapsed)}."
-    if cfg.progress_bar:
-        cfg.progress_bar.setText(time_str, "")
 
     print(time_str)
 
-    if sg.user_settings_get_entry("launch_after_convert"):
-        p = Popen("launch_dev.bat")
-
-    from Python.gui.gui import unlock_convert_button
-    unlock_convert_button()
+    if Settings.get("launch_on_finish"):
+        gamepath = Path(Path(output_folder_path) / "Cortex Command.exe")
+        p = Popen(gamepath, cwd=output_folder_path)
 
     warnings.show_popup_if_necessary()
 
@@ -89,7 +109,7 @@ def convert(
     output_folder_path,
     beautify_lua,
     output_zip,
-    skip_conversion,
+    skip_convert,
 ):
 
     input_mod_name = input_mod_path.name
@@ -103,9 +123,7 @@ def convert(
     if cfg.progress_bar:
         cfg.progress_bar.segment(2)
     cfg.progress_bar.setSubtext(f"processing file tree")
-    converter_walk(
-        input_mod_path, input_folder_path, output_folder_path, skip_conversion
-    )
+    converter_walk(input_mod_path, input_folder_path, output_folder_path, skip_convert)
 
     if beautify_lua:
         stylua.stylize(input_mod_path, input_folder_path, output_mod_path)
@@ -123,9 +141,7 @@ def convert(
         zips.zip(input_mod_name, Path(output_folder_path))
 
 
-def converter_walk(
-    input_mod_path, input_folder_path, output_folder_path, skip_conversion
-):
+def converter_walk(input_mod_path, input_folder_path, output_folder_path, skip_convert):
     subfolders = 1
     for _, dirs, __ in os.walk(input_mod_path):
         subfolders += len(dirs)
@@ -145,7 +161,7 @@ def converter_walk(
                 input_subfolder_path,
                 output_subfolder,
                 input_folder_path,
-                skip_conversion,
+                skip_convert,
             )
             if cfg.progress_bar:
                 cfg.progress_bar.inc()
@@ -158,7 +174,7 @@ def process_files(
     input_subfolder_path,
     output_subfolder,
     input_folder_path,
-    skip_conversion,
+    skip_convert,
 ):
     for full_filename in input_subfiles:
         filename, file_extension = os.path.splitext(
@@ -171,7 +187,7 @@ def process_files(
         output_file_path = os.path.join(output_subfolder, filename + file_extension)
 
         if bmp_to_png.is_bmp(full_filename):
-            if not skip_conversion:
+            if not skip_convert:
                 bmp_to_png.bmp_to_png(
                     input_file_path, Path(output_file_path).with_suffix(".png")
                 )
@@ -185,14 +201,14 @@ def process_files(
 
         if file_extension in (".ini", ".lua"):
             create_converted_file(
-                input_file_path, output_file_path, input_folder_path, skip_conversion
+                input_file_path, output_file_path, input_folder_path, skip_convert
             )
         elif not bmp_to_png.is_bmp(full_filename):
             shutil.copyfile(input_file_path, output_file_path)
 
 
 def create_converted_file(
-    input_file_path, output_file_path, input_folder_path, skip_conversion
+    input_file_path, output_file_path, input_folder_path, skip_convert
 ):
     # try: # TODO: Figure out why this try/except is necessary and why it doesn't check for an error type.
     with open(
@@ -206,7 +222,7 @@ def create_converted_file(
             for line in file_in:
                 line_number += 1
 
-                line = bmp_to_png.change_bmp_to_png_name(line, skip_conversion)
+                line = bmp_to_png.change_bmp_to_png_name(line, skip_convert)
 
                 # line = lua_parser.convert(line)
 
@@ -217,12 +233,12 @@ def create_converted_file(
                 all_lines += line
 
             # Conversion rules can contain newlines, so they can't be applied on a per-line basis.
-            all_lines = apply_conversion_rules(all_lines, skip_conversion)
+            all_lines = apply_conversion_rules(all_lines, skip_convert)
 
             # Case matching must be done after conversion, otherwise tons of errors wil be generated
             # all_lines = case_check.case_check(all_lines, input_file_path, output_file_path)
 
-            if not skip_conversion:
+            if not skip_convert:
                 all_lines = regex_rules.regex_replace(all_lines)
 
             # Case matching must be done after conversion, otherwise tons of errors wil be generated
@@ -235,8 +251,8 @@ def create_converted_file(
     # 	shutil.copyfile(input_file_path, output_file_path)
 
 
-def apply_conversion_rules(all_lines, skip_conversion):
-    if not skip_conversion:
+def apply_conversion_rules(all_lines, skip_convert):
+    if not skip_convert:
         for old_str, new_str in conversion_rules.items():
             old_str_parts = os.path.splitext(old_str)
             # Because bmp -> png already happened on all_lines we'll make all old_str conversion rules png.

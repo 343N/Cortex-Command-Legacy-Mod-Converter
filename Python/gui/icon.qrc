@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="icon">
+    <file>legacy-mod-converter.ico</file>
+  </qresource>
+</RCC>
